@@ -1,0 +1,56 @@
+{
+  "name": "ens",
+  "version": "0.1.0",
+  "description": "ENS name resolution for the MetaMask agent wallet CLI (mm)",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "oclif-plugin"
+  ],
+  "files": [
+    "dist",
+    "oclif.manifest.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && oclif manifest",
+    "prepack": "npm run build"
+  },
+  "oclif": {
+    "bin": "mm",
+    "commands": "./dist/commands",
+    "topicSeparator": " ",
+    "topics": {
+      "ens": {
+        "description": "Resolve ENS names and addresses"
+      }
+    }
+  },
+  "mm": {
+    "schemaVersion": 1,
+    "minCliVersion": "^6.1.0",
+    "capabilities": [
+      "wallet-read"
+    ],
+    "commands": [
+      {
+        "id": "ens:resolve",
+        "capabilities": [
+          "wallet-read"
+        ],
+        "dataAccess": []
+      }
+    ]
+  },
+  "peerDependencies": {
+    "@metamask/agent-wallet": "^6"
+  },
+  "dependencies": {
+    "viem": "^2.21.0"
+  },
+  "//": "TODO: switch the @metamask/agent-wallet devDependency from the local portal: link to the published npm version (e.g. ^6) once the plugin surface ships there",
+  "devDependencies": {
+    "@metamask/agent-wallet": "portal:../../../agentic-cli/packages/agentic-cli",
+    "oclif": "^4",
+    "typescript": "^5"
+  }
+}
