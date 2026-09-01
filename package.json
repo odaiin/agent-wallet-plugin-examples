@@ -1,0 +1,17 @@
+{
+  "name": "agent-wallet-plugin-examples",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Example plugins for the MetaMask Agent Wallet CLI (mm) — build all and link into a local mm install",
+  "license": "MIT",
+  "packageManager": "yarn@4.16.0",
+  "workspaces": [
+    "plugins/*"
+  ],
+  "scripts": {
+    "build": "yarn workspaces foreach --all run build",
+    "plugins:link": "bash scripts/link-plugins.sh",
+    "plugins:unlink": "bash scripts/unlink-plugins.sh",
+    "setup": "yarn build && yarn plugins:link"
+  }
+}
