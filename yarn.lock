@@ -654,6 +654,22 @@ __metadata:
   languageName: node
   linkType: soft
 
+"@metamask/agent-wallet@portal:../../../agentic-cli/packages/agentic-cli::locator=sample%40workspace%3Aplugins%2Fsample":
+  version: 0.0.0-use.local
+  resolution: "@metamask/agent-wallet@portal:../../../agentic-cli/packages/agentic-cli::locator=sample%40workspace%3Aplugins%2Fsample"
+  dependencies:
+    "@oclif/core": "npm:^4.11.4"
+    "@oclif/plugin-help": "npm:^6.2.55"
+    "@oclif/plugin-plugins": "npm:^5.4.37"
+    "@oclif/plugin-warn-if-update-available": "npm:^3.1.65"
+    "@toruslabs/base-controllers": "npm:9.12.0"
+    qrcode-terminal: "npm:^0.12.0"
+    semver: "npm:^7.7.2"
+  bin:
+    mm: dist/index.js
+  languageName: node
+  linkType: soft
+
 "@noble/ciphers@npm:1.3.0, @noble/ciphers@npm:^1.3.0":
   version: 1.3.0
   resolution: "@noble/ciphers@npm:1.3.0"
@@ -3821,6 +3837,18 @@ __metadata:
   checksum: 10c0/7e3c8b2e88a1841c9671094bbaeebd94448111dd90a81a1f606f3f67708a6ec57763b3b47f06da09fc6054193e0e6709e77325415dc8422b04497a8070fa02d4
   languageName: node
   linkType: hard
+
+"sample@workspace:plugins/sample":
+  version: 0.0.0-use.local
+  resolution: "sample@workspace:plugins/sample"
+  dependencies:
+    "@metamask/agent-wallet": "portal:../../../agentic-cli/packages/agentic-cli"
+    oclif: "npm:^4"
+    typescript: "npm:^5"
+  peerDependencies:
+    "@metamask/agent-wallet": ^6
+  languageName: unknown
+  linkType: soft
 
 "semver@npm:^7.1.1, semver@npm:^7.3.5, semver@npm:^7.3.7, semver@npm:^7.5.3, semver@npm:^7.7.2, semver@npm:^7.8.1, semver@npm:^7.8.5":
   version: 7.8.5

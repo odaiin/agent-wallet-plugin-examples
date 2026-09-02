@@ -1,0 +1,82 @@
+{
+  "name": "sample",
+  "version": "0.1.0",
+  "description": "Sample MetaMask Agent Wallet (mm) CLI plugin demonstrating the plugin API",
+  "license": "MIT",
+  "type": "module",
+  "keywords": [
+    "oclif-plugin",
+    "metamask",
+    "agent-wallet"
+  ],
+  "files": [
+    "dist",
+    "oclif.manifest.json"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && oclif manifest",
+    "prepack": "npm run build",
+    "type-check": "tsc -p tsconfig.json --noEmit"
+  },
+  "oclif": {
+    "bin": "mm",
+    "commands": "./dist/commands",
+    "topicSeparator": " "
+  },
+  "mm": {
+    "schemaVersion": 1,
+    "minCliVersion": "^6.1.0",
+    "capabilities": [],
+    "commands": [
+      {
+        "id": "ping",
+        "capabilities": [],
+        "dataAccess": []
+      },
+      {
+        "id": "demo:balance",
+        "capabilities": [
+          "wallet-read"
+        ],
+        "dataAccess": [
+          "balances",
+          "accounts"
+        ]
+      },
+      {
+        "id": "demo:submit",
+        "capabilities": [
+          "wallet-submit"
+        ],
+        "dataAccess": []
+      },
+      {
+        "id": "vault:mnemonic",
+        "capabilities": [],
+        "dataAccess": [
+          "mnemonic"
+        ]
+      },
+      {
+        "id": "admin:config",
+        "capabilities": [],
+        "dataAccess": []
+      },
+      {
+        "id": "admin:network",
+        "capabilities": [
+          "network-manage"
+        ],
+        "dataAccess": []
+      }
+    ]
+  },
+  "peerDependencies": {
+    "@metamask/agent-wallet": "^6"
+  },
+  "devDependencies": {
+    "@metamask/agent-wallet": "portal:../../../agentic-cli/packages/agentic-cli",
+    "oclif": "^4",
+    "typescript": "^5"
+  }
+}
