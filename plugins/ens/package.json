@@ -27,7 +27,7 @@
   },
   "mm": {
     "schemaVersion": 1,
-    "minCliVersion": "^6.1.0",
+    "minCliVersion": "^6.2.0",
     "capabilities": [
       "wallet-read"
     ],
@@ -42,14 +42,13 @@
     ]
   },
   "peerDependencies": {
-    "@metamask/agent-wallet": "^6"
+    "@metamask/agent-wallet": "^6.2.0"
   },
   "dependencies": {
     "viem": "^2.21.0"
   },
-  "//": "TODO: switch the @metamask/agent-wallet devDependency from the local portal: link to the published npm version (e.g. ^6) once the plugin surface ships there",
   "devDependencies": {
-    "@metamask/agent-wallet": "portal:../../../agentic-cli/packages/agentic-cli",
+    "@metamask/agent-wallet": "^6.2.0",
     "oclif": "^4",
     "typescript": "^5"
   }
