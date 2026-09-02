@@ -638,9 +638,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@metamask/agent-wallet@portal:../../../agentic-cli/packages/agentic-cli::locator=ens%40workspace%3Aplugins%2Fens":
-  version: 0.0.0-use.local
-  resolution: "@metamask/agent-wallet@portal:../../../agentic-cli/packages/agentic-cli::locator=ens%40workspace%3Aplugins%2Fens"
+"@metamask/agent-wallet@npm:^6.2.0":
+  version: 6.2.0
+  resolution: "@metamask/agent-wallet@npm:6.2.0"
   dependencies:
     "@oclif/core": "npm:^4.11.4"
     "@oclif/plugin-help": "npm:^6.2.55"
@@ -651,24 +651,9 @@ __metadata:
     semver: "npm:^7.7.2"
   bin:
     mm: dist/index.js
+  checksum: 10c0/34130f97931b78e4f35b0d3f0c3a4a8b71cc3405392a50eb73e7ead016f537d9cb80457f053cf654f8297f837eca5a898231d09844a7b86ea19e1e99ac66ca42
   languageName: node
-  linkType: soft
-
-"@metamask/agent-wallet@portal:../../../agentic-cli/packages/agentic-cli::locator=sample%40workspace%3Aplugins%2Fsample":
-  version: 0.0.0-use.local
-  resolution: "@metamask/agent-wallet@portal:../../../agentic-cli/packages/agentic-cli::locator=sample%40workspace%3Aplugins%2Fsample"
-  dependencies:
-    "@oclif/core": "npm:^4.11.4"
-    "@oclif/plugin-help": "npm:^6.2.55"
-    "@oclif/plugin-plugins": "npm:^5.4.37"
-    "@oclif/plugin-warn-if-update-available": "npm:^3.1.65"
-    "@toruslabs/base-controllers": "npm:9.12.0"
-    qrcode-terminal: "npm:^0.12.0"
-    semver: "npm:^7.7.2"
-  bin:
-    mm: dist/index.js
-  languageName: node
-  linkType: soft
+  linkType: hard
 
 "@noble/ciphers@npm:1.3.0, @noble/ciphers@npm:^1.3.0":
   version: 1.3.0
@@ -2129,12 +2114,12 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "ens@workspace:plugins/ens"
   dependencies:
-    "@metamask/agent-wallet": "portal:../../../agentic-cli/packages/agentic-cli"
+    "@metamask/agent-wallet": "npm:^6.2.0"
     oclif: "npm:^4"
     typescript: "npm:^5"
     viem: "npm:^2.21.0"
   peerDependencies:
-    "@metamask/agent-wallet": ^6
+    "@metamask/agent-wallet": ^6.2.0
   languageName: unknown
   linkType: soft
 
@@ -3842,11 +3827,11 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "sample@workspace:plugins/sample"
   dependencies:
-    "@metamask/agent-wallet": "portal:../../../agentic-cli/packages/agentic-cli"
+    "@metamask/agent-wallet": "npm:^6.2.0"
     oclif: "npm:^4"
     typescript: "npm:^5"
   peerDependencies:
-    "@metamask/agent-wallet": ^6
+    "@metamask/agent-wallet": ^6.2.0
   languageName: unknown
   linkType: soft
 
