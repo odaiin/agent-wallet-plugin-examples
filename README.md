@@ -7,6 +7,7 @@ managed as a monorepo.
 
 | Plugin | Capabilities | What it does |
 | --- | --- | --- |
+| [sample](plugins/sample) | varies | Reference sample demonstrating the plugin API (ping, wallet-read, wallet-submit, reserved capabilities). |
 | [ens](plugins/ens) | `wallet-read` | Resolve ENS names via the Agent Wallet. |
 
 ## Setup
