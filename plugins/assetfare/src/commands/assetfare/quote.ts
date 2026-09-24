@@ -12,6 +12,7 @@ import {
   parseQuoteIntent,
   type QuoteGuidance,
 } from "../../assetfare-client.js";
+import type { ContinuationDescriptor } from "../../continuation-v3.js";
 
 const inputs = {
   amountUsd: {
@@ -53,12 +54,13 @@ const inputs = {
 
 type QuoteResult = {
   quote: Record<string, unknown>;
+  continuation_descriptor: ContinuationDescriptor;
   guidance: QuoteGuidance;
 };
 
 export default class AssetFareQuote extends PluginCommand<QuoteResult> {
   static override description =
-    "Request a fresh read-only AssetFare quote with a fail-closed verified provider path, normalized endpoints, amount continuity, and exact 1bp fee step. Across Robinhood ingress is labeled external_intent. Defaults to USD 1,000 Arbitrum USDC to Base USDC; USD 1 is smoke-only.";
+    "Request a fresh read-only AssetFare quote with a fail-closed provider path and sanitized continuation_v3 descriptor. It exposes an unranked fingerprint, expiry, wallet-chain/event-signer requirements, and allowed mode, but never creates approval_v3, selects a route, collects wallets, or calls prepare/session. Defaults to USD 1,000; USD 1 is smoke-only.";
 
   static override examples = [
     "<%= config.bin %> assetfare quote",
@@ -86,7 +88,7 @@ export default class AssetFareQuote extends PluginCommand<QuoteResult> {
     const smoke = data.guidance.one_dollar_smoke_only ? "USD 1 is smoke-only. " : "";
     const summary = data.quote.direct_route_summary as { classification: string; steps: Array<{ provider: string }> };
     const providers = summary.steps.map((step) => step.provider).join(" -> ");
-    return `${smoke}Verified ${summary.classification} provider path: ${providers}. Compare fresh MetaMask --all-quotes candidates at the intended amount: ${data.guidance.metamask_all_quotes_command}`;
+    return `${smoke}Verified ${summary.classification} provider path: ${providers}. continuation_v3 is unranked and expires at ${data.continuation_descriptor.expires_at}; no route was selected and no action/session was created. Compare fresh MetaMask --all-quotes candidates at the intended amount: ${data.guidance.metamask_all_quotes_command}`;
   }
 }
 

@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -23,6 +25,7 @@ const endpoints = [
   ["polygon", "USDC"],
   ["optimism", "USDC"],
 ];
+const QUOTE_PAYLOAD_SHA256_SPEC = "sha256(AssetFare typed-canonical-v1 bytes of the quote without continuation_v3 after exact base-unit substitution: n=null; t/f=boolean; d=<IEEE-754 binary64 big-endian 16 lowercase hex> for each finite JSON number; s=<UTF-8 byte length>:<Unicode scalar text with lone surrogates forbidden>; a=<count>:[items]; o=<count>:{UTF-8-byte-sorted string-key/value pairs}; every non-substituted integral JSON number must be within +/-9007199254740991; substituted paths are intent.estimated_input_base, route.input_base, route.expected_output_base, route.minimum_output_base, and every route.steps[i].expected_input_base/floor_input_base/expected_output_base/minimum_output_base from direct_route_summary exact decimal strings)";
 
 function capabilities(overrides = {}) {
   return {
@@ -54,7 +57,7 @@ function quote(intent = DEFAULT_QUOTE_INTENT, overrides = {}) {
   const inputBase = Math.round(intent.amount_usd * 1_000_000);
   const expectedOutput = inputBase - 1000;
   const minimumOutput = inputBase - 2000;
-  return {
+  const value = {
     quote_id: "00000000-0000-4000-8000-000000000001",
     status: "capped_public_agent_release",
     as_of: "2026-09-24T00:00:00Z",
@@ -141,6 +144,133 @@ function quote(intent = DEFAULT_QUOTE_INTENT, overrides = {}) {
     handoff_schema_version: 2,
     ...overrides,
   };
+  return addContinuation(value);
+}
+
+function canonical(value) {
+  if (value === null || typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`).join(",")}}`;
+}
+
+function sha256(value) {
+  return createHash("sha256").update(canonical(value), "utf8").digest("hex");
+}
+
+function decimalString(value) {
+  const source = String(value);
+  const match = /^(-?)(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/i.exec(source);
+  assert.ok(match);
+  const negative = match[1] === "-";
+  const whole = match[2];
+  const fraction = match[3] || "";
+  const exponent = Number(match[4] || 0);
+  let digits = whole + fraction;
+  let point = whole.length + exponent;
+  if (point <= 0) { digits = "0".repeat(-point) + digits; point = 0; }
+  if (point >= digits.length) digits += "0".repeat(point - digits.length);
+  let rendered = point === 0 ? `0.${digits}` : point === digits.length ? digits : `${digits.slice(0, point)}.${digits.slice(point)}`;
+  if (rendered.includes(".")) rendered = rendered.replace(/0+$/, "").replace(/\.$/, "");
+  rendered = rendered.replace(/^0+(?=\d)/, "") || "0";
+  if (rendered.startsWith(".")) rendered = `0${rendered}`;
+  if (/^0(?:\.0*)?$/.test(rendered)) return "0";
+  return negative ? `-${rendered}` : rendered;
+}
+
+function hasLoneSurrogate(value) {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) return true;
+      index += 1;
+    } else if (code >= 0xdc00 && code <= 0xdfff) return true;
+  }
+  return false;
+}
+
+function typedCanonical(value) {
+  if (value === null) return Buffer.from("n", "ascii");
+  if (value === true) return Buffer.from("t", "ascii");
+  if (value === false) return Buffer.from("f", "ascii");
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || (Number.isInteger(value) && Math.abs(value) > Number.MAX_SAFE_INTEGER)) throw new Error("unsafe number");
+    const bytes = Buffer.allocUnsafe(8);
+    bytes.writeDoubleBE(value);
+    return Buffer.from(`d${bytes.toString("hex")}`, "ascii");
+  }
+  if (typeof value === "string") {
+    if (hasLoneSurrogate(value)) throw new Error("invalid unicode");
+    const bytes = Buffer.from(value, "utf8");
+    return Buffer.concat([Buffer.from(`s${bytes.length}:`, "ascii"), bytes]);
+  }
+  if (Array.isArray(value)) return Buffer.concat([Buffer.from(`a${value.length}:[`, "ascii"), ...value.map(typedCanonical), Buffer.from("]", "ascii")]);
+  const entries = Object.entries(value).sort(([left], [right]) => Buffer.compare(Buffer.from(left), Buffer.from(right)));
+  return Buffer.concat([Buffer.from(`o${entries.length}:{`, "ascii"), ...entries.flatMap(([key, item]) => [typedCanonical(key), typedCanonical(item)]), Buffer.from("}", "ascii")]);
+}
+
+function quotePayloadProjection(value) {
+  const payload = structuredClone(value);
+  delete payload.continuation_v3;
+  const summarySteps = payload.direct_route_summary.steps;
+  const rawSteps = payload.route.steps;
+  payload.intent.estimated_input_base = summarySteps[0].expected_input_base;
+  payload.route.input_base = summarySteps[0].expected_input_base;
+  payload.route.expected_output_base = summarySteps.at(-1).expected_output_base;
+  payload.route.minimum_output_base = summarySteps.at(-1).minimum_output_base;
+  rawSteps.forEach((raw, index) => {
+    const exact = summarySteps[index];
+    raw.expected_input_base = exact.expected_input_base;
+    raw.floor_input_base = exact.minimum_input_base;
+    raw.expected_output_base = exact.expected_output_base;
+    raw.minimum_output_base = exact.minimum_output_base;
+  });
+  return payload;
+}
+
+function quotePayloadSha256(value) {
+  return createHash("sha256").update(typedCanonical(quotePayloadProjection(value))).digest("hex");
+}
+
+function addContinuation(value) {
+  delete value.continuation_v3;
+  const summary = value.direct_route_summary;
+  const steps = summary.steps;
+  const wallets = [...new Set(steps.flatMap((step) => [step.from.split(":", 1)[0], step.to.split(":", 1)[0]]))].sort();
+  const signer = steps.some((step) => step.provider === "circle_cctp" && step.from.startsWith("solana:"));
+  const modes = summary.step_count > 1 ? ["session"] : ["one_shot", "session"];
+  const bounds = { minimum: String(summary.steps[0].expected_input_base), maximum: String(summary.steps[0].expected_input_base) };
+  const summaryHash = sha256(summary);
+  const payloadHash = quotePayloadSha256(value);
+  const issued = new Date();
+  const expires = new Date(issued.getTime() + 60_000);
+  const claim = {
+    version: "assetfare-quote-bound-continuation-v3", quote_id: value.quote_id,
+    issued_at: issued.toISOString(), expires_at: expires.toISOString(), ttl_seconds: "60",
+    intent: { from: value.intent.from, to: value.intent.to, amount_usd_decimal: String(value.intent.amount_usd), estimated_input_base: bounds.minimum },
+    direct_route_summary_sha256: summaryHash, quote_payload_sha256: payloadHash,
+    quote_payload_sha256_spec: QUOTE_PAYLOAD_SHA256_SPEC, input_base_bounds: bounds,
+    minimum_output_base: String(summary.steps.at(-1).minimum_output_base), required_wallet_chains: wallets,
+    event_signer_public_required: signer, step_count: String(summary.step_count), allowed_modes: modes,
+    server_signing: false, server_submission: false,
+  };
+  value.continuation_v3 = {
+    version: "assetfare-quote-bound-continuation-v3", enforcement: "server_enforced_quote_binding",
+    selection_status: "unranked_candidate", automatic_selection_forbidden: true,
+    caller_approved_boolean_is_not_human_proof: true, quote_id: value.quote_id, quote_fingerprint: sha256(claim),
+    quote_fingerprint_spec: "sha256(UTF-8 sorted-key compact JSON of quote_fingerprint_claim; every numeric claim is a non-exponent decimal string)",
+    quote_fingerprint_claim: claim, issued_at: claim.issued_at, expires_at: claim.expires_at, ttl_seconds: 60,
+    intent: structuredClone(value.intent), direct_route_summary_sha256: summaryHash, quote_payload_sha256: payloadHash,
+    quote_payload_sha256_spec: QUOTE_PAYLOAD_SHA256_SPEC,
+    input_base_bounds: bounds, minimum_output_base: claim.minimum_output_base, required_wallet_chains: wallets,
+    event_signer_public_required: signer, step_count: summary.step_count,
+    recommended_mode: summary.step_count > 1 ? "session" : "one_shot_or_session", allowed_modes: modes,
+    session_header: { name: "X-AssetFare-Session-Token", required_for: "session", caller_generated: true, minimum_entropy_bits: 256, server_returns_raw_value: false },
+    idempotency: { required: true, field: "idempotency_key", pattern: "^[A-Za-z0-9._:-]{8,128}$", scope: "quote_and_selected_mode" },
+    approval_v3_required_fields: ["direct_route_summary_sha256", "idempotency_key", "maximum_input_base", "minimum_output_base", "quote_fingerprint", "quote_id", "selected_mode", "selection_status", "version"],
+    legacy_handoff_enforcement: "legacy_advisory", server_signing: false, server_submission: false,
+  };
+  return value;
 }
 
 function acrossQuote() {
@@ -163,7 +293,7 @@ function acrossQuote() {
     fee_collection_step_index: 0, server_signing: false, server_submission: false, step_count: 1,
     steps: [{ index: 0, action: "bridge", provider: "across_intent_bridge", from: "base:USDC", to: "robinhood:USDG", expected_input_base: "1000000000", minimum_input_base: "1000000000", expected_output_base: "999999000", minimum_output_base: "999998000", assetfare_fee_bps: 1, direct_protocol: false, external_intent_protocol: true, aggregator_api_used: false }],
   };
-  return { intent, value };
+  return { intent, value: addContinuation(value) };
 }
 
 function solanaSolQuote() {
@@ -190,7 +320,7 @@ function solanaSolQuote() {
       { index: 1, action: "bridge", provider: "circle_cctp", from: "solana:USDC", to: "base:USDC", expected_input_base: "900000", minimum_input_base: "899000", expected_output_base: "899000", minimum_output_base: "898000", assetfare_fee_bps: 1, direct_protocol: true, external_intent_protocol: false, aggregator_api_used: false },
     ],
   };
-  return { intent, value };
+  return { intent, value: addContinuation(value) };
 }
 
 function jsonResponse(value, init = {}) {
@@ -244,6 +374,7 @@ test("quote uses one exact POST body, strips workflow handoffs, and gives fresh 
   assert.equal("caller_action_plan_handoff" in result.quote, false);
   assert.equal("caller_action_plan_handoff_v2" in result.quote, false);
   assert.equal("handoff_schema_version" in result.quote, false);
+  assert.equal("continuation_v3" in result.quote, false);
   assert.equal(result.quote.direct_route_summary.steps[0].provider, "circle_cctp");
   assert.equal(result.quote.direct_route_summary.steps[0].from, "arbitrum:USDC");
   assert.equal(result.quote.direct_route_summary.steps[0].to, "base:USDC");
@@ -259,9 +390,124 @@ test("quote uses one exact POST body, strips workflow handoffs, and gives fresh 
   assert.equal(result.guidance.session_created, false);
   assert.equal(result.guidance.transaction_signed, false);
   assert.equal(result.guidance.transaction_submitted, false);
+  assert.equal(result.guidance.continuation_v3_verified, true);
+  assert.equal(result.guidance.automatic_selection_forbidden, true);
+  assert.equal(result.guidance.approval_v3_generated, false);
+  assert.equal(result.guidance.wallet_collection_performed, false);
+  assert.equal(result.guidance.prepare_calls, 0);
+  assert.equal(result.guidance.session_calls, 0);
+  assert.deepEqual(result.continuation_descriptor.required_wallet_chains, ["arbitrum", "base"]);
+  assert.deepEqual(result.continuation_descriptor.allowed_modes, ["one_shot", "session"]);
+  assert.equal(result.continuation_descriptor.recommended_mode, "one_shot_or_session");
+  assert.equal(result.continuation_descriptor.selection_status, "unranked_candidate");
+  assert.equal(result.continuation_descriptor.openapi_url, "https://api.assetfare.dev/v2/openapi");
+  assert.equal(result.continuation_descriptor.legacy_handoff_enforcement, "legacy_advisory");
+  assert.equal("quote_fingerprint_claim" in result.continuation_descriptor, false);
+  assert.equal("input_base_bounds" in result.continuation_descriptor, false);
 });
 
-test("capabilities fail closed without the REST 2.3.0 direct-route contract", async () => {
+test("quote rejects malformed, tampered, auto-selected, or weakened continuation_v3", async () => {
+  const cases = [
+    (value) => { delete value.continuation_v3; },
+    (value) => { value.continuation_v3.extra = true; },
+    (value) => { value.continuation_v3.selection_status = "selected"; },
+    (value) => { value.continuation_v3.automatic_selection_forbidden = false; },
+    (value) => { value.continuation_v3.caller_approved_boolean_is_not_human_proof = false; },
+    (value) => { value.continuation_v3.quote_fingerprint = "0".repeat(64); },
+    (value) => { value.continuation_v3.quote_payload_sha256_spec = "forbidden"; },
+    (value) => { value.continuation_v3.required_wallet_chains = ["base"]; },
+    (value) => { value.continuation_v3.event_signer_public_required = true; },
+    (value) => { value.continuation_v3.allowed_modes = ["session"]; },
+    (value) => { value.continuation_v3.input_base_bounds.maximum = "1000000001"; },
+    (value) => { value.continuation_v3.input_base_bounds.extra = "forbidden"; },
+    (value) => { value.continuation_v3.session_header.server_returns_raw_value = true; },
+    (value) => { value.continuation_v3.session_header.extra = "forbidden"; },
+    (value) => { value.continuation_v3.idempotency.extra = "forbidden"; },
+    (value) => { value.continuation_v3.quote_fingerprint_claim.step_count = "2"; },
+    (value) => { value.continuation_v3.quote_fingerprint_claim.quote_payload_sha256_spec = "forbidden"; },
+    (value) => { value.continuation_v3.quote_fingerprint_claim.intent.extra = "forbidden"; },
+    (value) => { value.continuation_v3.quote_fingerprint_claim.input_base_bounds.extra = "forbidden"; },
+    (value) => { value.continuation_v3.private_key = "forbidden"; },
+  ];
+  for (const mutate of cases) {
+    const hostile = structuredClone(quote());
+    mutate(hostile);
+    await assert.rejects(getQuote(async () => jsonResponse(hostile), DEFAULT_QUOTE_INTENT));
+  }
+});
+
+test("portable continuation payload hash accepts integral USD and raw base units above 2^53", async () => {
+  const value = quote();
+  const exactInput = "9007199254740993";
+  const exactOutput = "9007199254740893";
+  const exactMinimum = "9007199254740793";
+  value.intent.amount_usd = 1000;
+  value.intent.estimated_input_base = Number(exactInput);
+  value.route.input_base = Number(exactInput);
+  value.route.expected_output_base = Number(exactOutput);
+  value.route.minimum_output_base = Number(exactMinimum);
+  value.route.steps[0].expected_input_base = Number(exactInput);
+  value.route.steps[0].floor_input_base = Number(exactInput);
+  value.route.steps[0].expected_output_base = Number(exactOutput);
+  value.route.steps[0].minimum_output_base = Number(exactMinimum);
+  Object.assign(value.direct_route_summary.steps[0], {
+    expected_input_base: exactInput,
+    minimum_input_base: exactInput,
+    expected_output_base: exactOutput,
+    minimum_output_base: exactMinimum,
+  });
+  addContinuation(value);
+  const result = await getQuote(async () => jsonResponse(value), DEFAULT_QUOTE_INTENT);
+  assert.equal(result.continuation_descriptor.quote_fingerprint, value.continuation_v3.quote_fingerprint);
+});
+
+test("typed payload hash preserves number/string and negative zero and rejects unsafe evidence integers", () => {
+  const numeric = quote();
+  const string = quote();
+  const negativeZero = quote();
+  const positiveZero = quote();
+  numeric.route.steps[0].expected_evidence.semantic = 1;
+  string.route.steps[0].expected_evidence.semantic = "1";
+  negativeZero.route.steps[0].expected_evidence.semantic = -0;
+  positiveZero.route.steps[0].expected_evidence.semantic = 0;
+  assert.notEqual(quotePayloadSha256(numeric), quotePayloadSha256(string));
+  assert.notEqual(quotePayloadSha256(negativeZero), quotePayloadSha256(positiveZero));
+  const unsafe = quote();
+  unsafe.route.steps[0].expected_evidence.semantic = 500000000000000000;
+  assert.throws(() => quotePayloadSha256(unsafe), /unsafe number/);
+  const invalidUnicode = quote();
+  invalidUnicode.route.steps[0].expected_evidence.semantic = "\ud800";
+  assert.throws(() => quotePayloadSha256(invalidUnicode), /invalid unicode/);
+});
+
+test("exact Core 2.4.1 typed-canonical fixture survives JSON parsing and validates", async () => {
+  const fixtureText = readFileSync(
+    new URL("./fixtures/core-241-unsafe-integer-quote.json", import.meta.url),
+    "utf8",
+  );
+  assert.match(fixtureText, /"amount_usd":1000\.0/);
+  assert.match(fixtureText, /"estimated_input_base":9007199254740993/);
+  const fixture = JSON.parse(fixtureText);
+  assert.equal(fixture.intent.estimated_input_base, 9007199254740992);
+  assert.equal(fixture.direct_route_summary.steps[0].expected_input_base, "9007199254740993");
+  assert.equal(
+    quotePayloadSha256(fixture),
+    "f071dead7a91a993e72ec086ac7948e801880bf24cda916ad0761e962249f17c",
+  );
+  const originalNow = Date.now;
+  Date.now = () => Date.parse("2026-09-24T14:08:00Z");
+  try {
+    const result = await getQuote(
+      async () => jsonResponse(fixture),
+      { from_chain: "base", from_token: "USDC", to_chain: "arbitrum", to_token: "USDC", amount_usd: 1000 },
+    );
+    assert.equal(result.continuation_descriptor.quote_fingerprint, fixture.continuation_v3.quote_fingerprint);
+  } finally {
+    Date.now = originalNow;
+  }
+});
+
+test("capabilities fail closed without the REST 2.4.1 direct-route contract", async () => {
   const missing = capabilities();
   delete missing.direct_route_summary;
   await assert.rejects(getCapabilities(async () => jsonResponse(missing)), /expected schema/);

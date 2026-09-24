@@ -55,6 +55,28 @@ internals. Unknown or wrong providers, reordered paths, false-direct Across
 claims, amount or fee mismatches, aggregation misstatements, extra fields, and
 private or signed material are rejected instead of displayed.
 
+## Sanitized quote-bound continuation
+
+The plugin also validates the complete REST 2.4.1 `continuation_v3`, including
+portable quote/route hashes, fingerprint claim, expiry, exact caller bounds,
+route-derived wallet chains/event signer, and allowed mode. It removes the raw
+continuation and returns only `continuation_descriptor`: quote ID/fingerprint,
+expiry, unranked status, required wallet chains/event signer,
+allowed/recommended mode, the full OpenAPI URL, and the `legacy_advisory` marker.
+The quote payload hash replaces duplicated raw base-unit numbers with exact
+`direct_route_summary` strings, then uses typed-canonical-v1 bytes. The encoding
+preserves JSON types and negative zero, represents finite numbers by IEEE-754
+binary64, sorts object keys by UTF-8 bytes, and rejects unsafe non-substituted
+integral numbers plus lone Unicode surrogates; substituted raw amounts may
+exceed JavaScript's `2^53` safe limit.
+
+This remains quote-only. The plugin never creates `approval_v3`, changes the
+candidate from unranked to selected, collects wallet addresses, or calls
+prepare/session. `caller_approved: true` alone is not proof of human approval.
+An operator must compare fresh MetaMask candidates, explicitly select locally,
+then use a separate reviewed integration if they want to act. Multi-step routes
+are session-only; exactly one continuation path may be chosen.
+
 ## Security boundary
 
 - The plugin requests zero Agent Wallet capabilities and zero data-access
@@ -66,11 +88,11 @@ private or signed material are rejected instead of displayed.
 - It contacts only the fixed public HTTPS endpoints
   `https://api.assetfare.dev/v2/capabilities` and
   `https://api.assetfare.dev/v2/quote`.
-- Capabilities must advertise the REST 2.3.0 direct-route contract, and quote
+- Capabilities must advertise the REST 2.4.1 direct-route contract, and quote
   responses fail closed unless the exact path contract and AssetFare's
   server-signing/server-submission claims pass. Private or signed material is
   rejected.
-- Execution handoff fields are removed from quote output. This plugin is for
+- Execution handoff and raw continuation fields are removed from quote output. This plugin is for
   discovery and comparison only.
 
 The command classes implement the SDK-required `execute()` method; that method

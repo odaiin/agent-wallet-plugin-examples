@@ -1,4 +1,5 @@
 import { validateDirectRouteSummary } from "./direct-route-summary.js";
+import { validateContinuationDescriptor, type ContinuationDescriptor } from "./continuation-v3.js";
 
 export const ASSETFARE_ORIGIN = "https://api.assetfare.dev";
 export const CAPABILITIES_URL = `${ASSETFARE_ORIGIN}/v2/capabilities`;
@@ -80,6 +81,12 @@ export type QuoteGuidance = {
   route_classification: "direct_protocol_only" | "external_intent";
   assetfare_engine_route_aggregator_used: false;
   provider_internal_dex_aggregation_possible: boolean;
+  continuation_v3_verified: true;
+  automatic_selection_forbidden: true;
+  approval_v3_generated: false;
+  wallet_collection_performed: false;
+  prepare_calls: 0;
+  session_calls: 0;
 };
 
 export class AssetFareClientError extends Error {
@@ -206,7 +213,7 @@ export async function getCapabilities(fetchImpl: FetchLike): Promise<Record<stri
 export async function getQuote(
   fetchImpl: FetchLike,
   intent: QuoteIntent,
-): Promise<{ quote: Record<string, unknown>; guidance: QuoteGuidance }> {
+): Promise<{ quote: Record<string, unknown>; continuation_descriptor: ContinuationDescriptor; guidance: QuoteGuidance }> {
   const payload = await requestJson(fetchImpl, QUOTE_URL, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -215,15 +222,29 @@ export async function getQuote(
   const quote = requireRecord(payload, "ASSETFARE_UNSAFE_QUOTE");
   rejectUnsafeOutput(quote);
   const directRouteSummary = validateQuote(quote, intent);
+  let continuationDescriptor: ContinuationDescriptor;
+  try {
+    continuationDescriptor = validateContinuationDescriptor(quote, directRouteSummary);
+  } catch {
+    throw new AssetFareClientError(
+      "ASSETFARE_UNSAFE_QUOTE",
+      "AssetFare quote failed the exact continuation_v3 contract.",
+    );
+  }
 
   const safeQuote = structuredClone(quote);
   delete safeQuote.execution;
   delete safeQuote.caller_action_plan_handoff;
   delete safeQuote.caller_action_plan_handoff_v2;
   delete safeQuote.handoff_schema_version;
+  delete safeQuote.continuation_v3;
   safeQuote.direct_route_summary = directRouteSummary;
 
-  return { quote: safeQuote, guidance: createGuidance(intent, directRouteSummary) };
+  return {
+    quote: safeQuote,
+    continuation_descriptor: continuationDescriptor,
+    guidance: createGuidance(intent, directRouteSummary),
+  };
 }
 
 function createGuidance(intent: QuoteIntent, directRouteSummary: Record<string, unknown>): QuoteGuidance {
@@ -255,6 +276,12 @@ function createGuidance(intent: QuoteIntent, directRouteSummary: Record<string, 
     assetfare_engine_route_aggregator_used: false,
     provider_internal_dex_aggregation_possible:
       directRouteSummary.provider_internal_dex_aggregation_possible as boolean,
+    continuation_v3_verified: true,
+    automatic_selection_forbidden: true,
+    approval_v3_generated: false,
+    wallet_collection_performed: false,
+    prepare_calls: 0,
+    session_calls: 0,
   };
 }
 
