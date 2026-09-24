@@ -1,7 +1,7 @@
 {
   "name": "assetfare",
   "version": "0.1.0",
-  "description": "Read-only AssetFare capabilities and cross-chain quotes for MetaMask Agent Wallet",
+  "description": "Read-only AssetFare quotes with a fail-closed verified direct provider path for MetaMask Agent Wallet",
   "license": "MIT",
   "type": "module",
   "keywords": [
@@ -30,7 +30,7 @@
     "topicSeparator": " ",
     "topics": {
       "assetfare": {
-        "description": "Read AssetFare route capabilities and quotes"
+        "description": "Read AssetFare capabilities and verified direct provider-path quotes"
       }
     }
   },

@@ -3,7 +3,7 @@ import { AssetFareClientError, getCapabilities } from "../../assetfare-client.js
 
 export default class AssetFareCapabilities extends PluginCommand<Record<string, unknown>> {
   static override description =
-    "Read AssetFare's public route capabilities without wallet permissions, authentication, or initialization.";
+    "Read AssetFare's public route capabilities and verify the REST 2.3.0 direct-route/no-sign contract without wallet permissions, authentication, or initialization.";
 
   static override examples = ["<%= config.bin %> assetfare capabilities", "<%= config.bin %> assetfare capabilities --json"];
 

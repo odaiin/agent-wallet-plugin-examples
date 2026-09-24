@@ -58,7 +58,7 @@ type QuoteResult = {
 
 export default class AssetFareQuote extends PluginCommand<QuoteResult> {
   static override description =
-    "Request a fresh read-only AssetFare quote. Defaults to USD 1,000 Arbitrum USDC to Base USDC; USD 1 is smoke-only.";
+    "Request a fresh read-only AssetFare quote with a fail-closed verified provider path, normalized endpoints, amount continuity, and exact 1bp fee step. Across Robinhood ingress is labeled external_intent. Defaults to USD 1,000 Arbitrum USDC to Base USDC; USD 1 is smoke-only.";
 
   static override examples = [
     "<%= config.bin %> assetfare quote",
@@ -84,7 +84,9 @@ export default class AssetFareQuote extends PluginCommand<QuoteResult> {
 
   override successHint(data: QuoteResult): string {
     const smoke = data.guidance.one_dollar_smoke_only ? "USD 1 is smoke-only. " : "";
-    return `${smoke}Compare fresh MetaMask --all-quotes candidates at the intended amount: ${data.guidance.metamask_all_quotes_command}`;
+    const summary = data.quote.direct_route_summary as { classification: string; steps: Array<{ provider: string }> };
+    const providers = summary.steps.map((step) => step.provider).join(" -> ");
+    return `${smoke}Verified ${summary.classification} provider path: ${providers}. Compare fresh MetaMask --all-quotes candidates at the intended amount: ${data.guidance.metamask_all_quotes_command}`;
   }
 }
 

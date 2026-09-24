@@ -37,6 +37,24 @@ mm swap quote \
 Quotes expire and availability changes. Never compare a USD 1 smoke result or
 a stale quote with a fresh candidate.
 
+## Verified direct provider path
+
+Every accepted quote includes `direct_route_summary`. The plugin fails closed
+unless that object exactly matches the requested chain, asset, and USD amount,
+the disclosed 76-route plan, and the underlying raw route evidence. The output
+therefore gives agents an ordered provider path with normalized `chain:asset`
+endpoints, continuous expected/minimum base-unit amounts, and the exact step
+that charges AssetFare's 1bp service fee.
+
+`classification: direct_protocol_only` means every step uses a disclosed
+direct protocol and excludes Across. `classification: external_intent` marks
+Across Robinhood ingress, where provider-internal liquidity sourcing or
+aggregation can still occur. `route_aggregator_used: false` is scoped only to
+AssetFare's own routing engine and is not a claim about every provider's
+internals. Unknown or wrong providers, reordered paths, false-direct Across
+claims, amount or fee mismatches, aggregation misstatements, extra fields, and
+private or signed material are rejected instead of displayed.
+
 ## Security boundary
 
 - The plugin requests zero Agent Wallet capabilities and zero data-access
@@ -48,9 +66,10 @@ a stale quote with a fresh candidate.
 - It contacts only the fixed public HTTPS endpoints
   `https://api.assetfare.dev/v2/capabilities` and
   `https://api.assetfare.dev/v2/quote`.
-- Responses fail closed unless AssetFare's server-signing and
-  server-submission claims are explicitly `false`. Private or signed material
-  in a response is rejected.
+- Capabilities must advertise the REST 2.3.0 direct-route contract, and quote
+  responses fail closed unless the exact path contract and AssetFare's
+  server-signing/server-submission claims pass. Private or signed material is
+  rejected.
 - Execution handoff fields are removed from quote output. This plugin is for
   discovery and comparison only.
 

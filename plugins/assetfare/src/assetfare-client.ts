@@ -1,3 +1,5 @@
+import { validateDirectRouteSummary } from "./direct-route-summary.js";
+
 export const ASSETFARE_ORIGIN = "https://api.assetfare.dev";
 export const CAPABILITIES_URL = `${ASSETFARE_ORIGIN}/v2/capabilities`;
 export const QUOTE_URL = `${ASSETFARE_ORIGIN}/v2/quote`;
@@ -70,6 +72,14 @@ export type QuoteGuidance = {
   transaction_submitted: false;
   server_signing: false;
   server_submission: false;
+  direct_route_summary_verified: true;
+  ordered_provider_path_verified: true;
+  normalized_chain_asset_endpoints_verified: true;
+  amount_continuity_verified: true;
+  assetfare_fee_step_verified: true;
+  route_classification: "direct_protocol_only" | "external_intent";
+  assetfare_engine_route_aggregator_used: false;
+  provider_internal_dex_aggregation_possible: boolean;
 };
 
 export class AssetFareClientError extends Error {
@@ -150,6 +160,29 @@ export async function getCapabilities(fetchImpl: FetchLike): Promise<Record<stri
       "AssetFare capabilities failed the read-only safety boundary.",
     );
   }
+  const directRouteContract = requireRecord(capabilities.direct_route_summary, "ASSETFARE_UNSAFE_CAPABILITIES");
+  if (
+    directRouteContract.version !== "assetfare-direct-route-summary-v1" ||
+    directRouteContract.required_on_every_quote !== true ||
+    directRouteContract.route_count !== 76 ||
+    directRouteContract.step_count !== 168 ||
+    directRouteContract.ordered_provider_path !== true ||
+    directRouteContract.normalized_chain_asset_endpoints !== true ||
+    directRouteContract.assetfare_fee_step_bound !== true ||
+    directRouteContract.base_unit_amounts_are_decimal_strings !== true ||
+    directRouteContract.route_aggregator_used_scope !== "assetfare_engine_only" ||
+    directRouteContract.server_signing !== false ||
+    directRouteContract.server_submission !== false ||
+    !Array.isArray(directRouteContract.classification_values) ||
+    directRouteContract.classification_values.length !== 2 ||
+    !directRouteContract.classification_values.includes("direct_protocol_only") ||
+    !directRouteContract.classification_values.includes("external_intent")
+  ) {
+    throw new AssetFareClientError(
+      "ASSETFARE_UNSAFE_CAPABILITIES",
+      "AssetFare direct-route capabilities did not match the required contract.",
+    );
+  }
   const assetEndpoints = capabilities.asset_endpoints;
   if (!Array.isArray(assetEndpoints) || assetEndpoints.length !== ENDPOINTS.size) {
     throw new AssetFareClientError("ASSETFARE_UNSAFE_CAPABILITIES", "AssetFare endpoint capabilities are incomplete.");
@@ -181,18 +214,19 @@ export async function getQuote(
   });
   const quote = requireRecord(payload, "ASSETFARE_UNSAFE_QUOTE");
   rejectUnsafeOutput(quote);
-  validateQuote(quote, intent);
+  const directRouteSummary = validateQuote(quote, intent);
 
   const safeQuote = structuredClone(quote);
   delete safeQuote.execution;
   delete safeQuote.caller_action_plan_handoff;
   delete safeQuote.caller_action_plan_handoff_v2;
   delete safeQuote.handoff_schema_version;
+  safeQuote.direct_route_summary = directRouteSummary;
 
-  return { quote: safeQuote, guidance: createGuidance(intent) };
+  return { quote: safeQuote, guidance: createGuidance(intent, directRouteSummary) };
 }
 
-function createGuidance(intent: QuoteIntent): QuoteGuidance {
+function createGuidance(intent: QuoteIntent, directRouteSummary: Record<string, unknown>): QuoteGuidance {
   const sourceAmount =
     intent.from_token === "USDC" ? String(intent.amount_usd) : `<source-token-amount-for-${intent.amount_usd}-USD>`;
   const chainIds: Record<string, number> = { arbitrum: 42161, base: 8453, optimism: 10, polygon: 137 };
@@ -212,6 +246,15 @@ function createGuidance(intent: QuoteIntent): QuoteGuidance {
     transaction_submitted: false,
     server_signing: false,
     server_submission: false,
+    direct_route_summary_verified: true,
+    ordered_provider_path_verified: true,
+    normalized_chain_asset_endpoints_verified: true,
+    amount_continuity_verified: true,
+    assetfare_fee_step_verified: true,
+    route_classification: directRouteSummary.classification as "direct_protocol_only" | "external_intent",
+    assetfare_engine_route_aggregator_used: false,
+    provider_internal_dex_aggregation_possible:
+      directRouteSummary.provider_internal_dex_aggregation_possible as boolean,
   };
 }
 
@@ -258,7 +301,7 @@ async function requestJson(fetchImpl: FetchLike, url: string, init: RequestInit)
   }
 }
 
-function validateQuote(quote: Record<string, unknown>, intent: QuoteIntent): void {
+function validateQuote(quote: Record<string, unknown>, intent: QuoteIntent): Record<string, unknown> {
   const quotedIntent = requireRecord(quote.intent, "ASSETFARE_UNSAFE_QUOTE");
   const offer = requireRecord(quote.offer, "ASSETFARE_UNSAFE_QUOTE");
   const route = requireRecord(quote.route, "ASSETFARE_UNSAFE_QUOTE");
@@ -297,6 +340,14 @@ function validateQuote(quote: Record<string, unknown>, intent: QuoteIntent): voi
     route.steps.length > 8
   ) {
     throw new AssetFareClientError("ASSETFARE_UNSAFE_QUOTE", "AssetFare quote contained invalid route economics.");
+  }
+  try {
+    return validateDirectRouteSummary(quote, intent);
+  } catch {
+    throw new AssetFareClientError(
+      "ASSETFARE_UNSAFE_QUOTE",
+      "AssetFare quote failed the exact direct-route contract.",
+    );
   }
 }
 
