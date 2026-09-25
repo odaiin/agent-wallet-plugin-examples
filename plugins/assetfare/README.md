@@ -78,7 +78,7 @@ then use a separate reviewed integration if they want to act. Multi-step routes
 are session-only; exactly one continuation path may be chosen.
 
 The result also includes `guidance.caller_owned_continuation`, a structured
-two-command handoff pinned to `assetfare-mcp@1.4.0`. Because this plugin removes
+two-command handoff pinned to `assetfare-mcp@1.5.1`. Because this plugin removes
 the raw quote, the first command obtains and writes one new exact validated
 quote to a mode-0600 file. Only after comparison and explicit caller approval,
 the second command creates strict quote-bound approval locally and requests one
@@ -87,13 +87,17 @@ EIP-1193 templates or Solana Wallet Standard construction inputs together with
 the exact verified bundle, safety receipt, verification results, and a canonical handoff hash. Commands are
 returned as an executable plus argument array and contain public-address placeholders only. The plugin still
 requests zero Agent Wallet permissions and never prepares, signs, or submits.
-The 1.4.0 session capability preserves strict verification context so every
+The 1.5.1 session capability preserves strict verification context so every
 later session action receives the same semantic verification and a new
 self-verifying wallet handoff.
 Immediately before wallet use, run the returned `wallet_ready_command_template`.
 Quote selection remains 60 seconds, while an action bundle lasts 180 seconds
 with a 240-second EVM deadline; `wallet-ready` requires at least 120 seconds
 remaining or refreshes only an expired, unsubmitted action.
+A wallet-capable caller agent may then use the returned
+`caller_owned_runner_command_template` with its own local policy and wallet
+adapter. This plugin remains read-only: it does not create that policy, access a
+key, invoke a wallet, sign, submit, or expose a remote MCP execution tool.
 
 Use the continuation for an aggregate refill or material transfer, not
 automatically for each failed x402 micropayment. For the evidenced Solana USDC

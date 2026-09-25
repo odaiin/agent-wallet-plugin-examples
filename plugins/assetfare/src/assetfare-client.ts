@@ -88,7 +88,7 @@ export type QuoteGuidance = {
   prepare_calls: 0;
   session_calls: 0;
   caller_owned_continuation: {
-    package_version: "1.4.0";
+    package_version: "1.5.1";
     requires_fresh_requote: true;
     requires_explicit_caller_approval_before_plan: true;
     plugin_returns_raw_quote: false;
@@ -102,6 +102,14 @@ export type QuoteGuidance = {
       wallet_ready_minimum_remaining_seconds: 120;
     };
     wallet_ready_command_template: { executable: "npx"; args: string[] };
+    caller_owned_runner_command_template: { executable: "npx"; args: string[] };
+    caller_owned_runner: {
+      policy_schema: "https://assetfare.dev/schemas/caller-owned-execution-policy-v1.json";
+      key_location: "caller_wallet_adapter_only";
+      remote_mcp_execution_tool: false;
+      assetfare_server_key_access: false;
+      assetfare_server_signs_or_submits: false;
+    };
     outcome: "verified_unsigned_plan_only";
     wallet_signs_and_submits: true;
     assetfare_server_signs_or_submits: false;
@@ -306,7 +314,7 @@ function createGuidance(
     prepare_calls: 0,
     session_calls: 0,
     caller_owned_continuation: {
-      package_version: "1.4.0",
+      package_version: "1.5.1",
       requires_fresh_requote: true,
       requires_explicit_caller_approval_before_plan: true,
       plugin_returns_raw_quote: false,
@@ -315,7 +323,7 @@ function createGuidance(
         executable: "npx",
         args: [
           "--yes",
-          "--package=assetfare-mcp@1.4.0",
+          "--package=assetfare-mcp@1.5.1",
           "assetfare-route-eval",
           "--amount",
           String(intent.amount_usd),
@@ -335,7 +343,7 @@ function createGuidance(
         executable: "npx",
         args: [
           "--yes",
-          "--package=assetfare-mcp@1.4.0",
+          "--package=assetfare-mcp@1.5.1",
           "assetfare-plan",
           "--caller-approved",
           "--mode",
@@ -366,7 +374,7 @@ function createGuidance(
         executable: "npx",
         args: [
           "--yes",
-          "--package=assetfare-mcp@1.4.0",
+          "--package=assetfare-mcp@1.5.1",
           "assetfare-session",
           "--operation",
           "wallet-ready",
@@ -377,6 +385,28 @@ function createGuidance(
           "--wallet-handoff-output",
           "./wallet-ready-handoff.json",
         ],
+      },
+      caller_owned_runner_command_template: {
+        executable: "npx",
+        args: [
+          "--yes",
+          "--package=assetfare-mcp@1.5.1",
+          "assetfare-agent-runner",
+          "--preflight",
+          "--capability-file",
+          "./session-capability.json",
+          "--policy-file",
+          "./caller-execution-policy.json",
+          "--wallet-adapter",
+          "./my-local-wallet-adapter.mjs",
+        ],
+      },
+      caller_owned_runner: {
+        policy_schema: "https://assetfare.dev/schemas/caller-owned-execution-policy-v1.json",
+        key_location: "caller_wallet_adapter_only",
+        remote_mcp_execution_tool: false,
+        assetfare_server_key_access: false,
+        assetfare_server_signs_or_submits: false,
       },
       outcome: "verified_unsigned_plan_only",
       wallet_signs_and_submits: true,
