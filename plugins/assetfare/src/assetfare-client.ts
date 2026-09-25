@@ -87,6 +87,18 @@ export type QuoteGuidance = {
   wallet_collection_performed: false;
   prepare_calls: 0;
   session_calls: 0;
+  caller_owned_continuation: {
+    package_version: "1.3.0";
+    requires_fresh_requote: true;
+    requires_explicit_caller_approval_before_plan: true;
+    plugin_returns_raw_quote: false;
+    plugin_remains_read_only: true;
+    quote_command: { executable: "npx"; args: string[] };
+    unsigned_plan_command_template: { executable: "npx"; args: string[] };
+    outcome: "verified_unsigned_plan_only";
+    wallet_signs_and_submits: true;
+    assetfare_server_signs_or_submits: false;
+  };
 };
 
 export class AssetFareClientError extends Error {
@@ -243,11 +255,15 @@ export async function getQuote(
   return {
     quote: safeQuote,
     continuation_descriptor: continuationDescriptor,
-    guidance: createGuidance(intent, directRouteSummary),
+    guidance: createGuidance(intent, directRouteSummary, continuationDescriptor),
   };
 }
 
-function createGuidance(intent: QuoteIntent, directRouteSummary: Record<string, unknown>): QuoteGuidance {
+function createGuidance(
+  intent: QuoteIntent,
+  directRouteSummary: Record<string, unknown>,
+  descriptor: ContinuationDescriptor,
+): QuoteGuidance {
   const sourceAmount =
     intent.from_token === "USDC" ? String(intent.amount_usd) : `<source-token-amount-for-${intent.amount_usd}-USD>`;
   const chainIds: Record<string, number> = { arbitrum: 42161, base: 8453, optimism: 10, polygon: 137 };
@@ -282,6 +298,59 @@ function createGuidance(intent: QuoteIntent, directRouteSummary: Record<string, 
     wallet_collection_performed: false,
     prepare_calls: 0,
     session_calls: 0,
+    caller_owned_continuation: {
+      package_version: "1.3.0",
+      requires_fresh_requote: true,
+      requires_explicit_caller_approval_before_plan: true,
+      plugin_returns_raw_quote: false,
+      plugin_remains_read_only: true,
+      quote_command: {
+        executable: "npx",
+        args: [
+          "--yes",
+          "--package=assetfare-mcp@1.3.0",
+          "assetfare-route-eval",
+          "--amount",
+          String(intent.amount_usd),
+          "--from-chain",
+          intent.from_chain,
+          "--from-token",
+          intent.from_token,
+          "--to-chain",
+          intent.to_chain,
+          "--to-token",
+          intent.to_token,
+          "--quote-output",
+          "quote.json",
+        ],
+      },
+      unsigned_plan_command_template: {
+        executable: "npx",
+        args: [
+          "--yes",
+          "--package=assetfare-mcp@1.3.0",
+          "assetfare-plan",
+          "--caller-approved",
+          "--mode",
+          "session",
+          "--quote",
+          "quote.json",
+          "--select-exact-quote-bounds",
+          ...descriptor.required_wallet_chains.flatMap((chain) => [
+            "--wallet",
+            `${chain}=<CALLER_${chain.toUpperCase()}_PUBLIC_ADDRESS>`,
+          ]),
+          ...(descriptor.event_signer_public_required
+            ? ["--event-signer-public", "<CALLER_EPHEMERAL_SOLANA_PUBLIC_KEY>"]
+            : []),
+          "--session-token-output",
+          "./session-capability.json",
+        ],
+      },
+      outcome: "verified_unsigned_plan_only",
+      wallet_signs_and_submits: true,
+      assetfare_server_signs_or_submits: false,
+    },
   };
 }
 
