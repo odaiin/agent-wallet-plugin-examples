@@ -88,7 +88,7 @@ export type QuoteGuidance = {
   prepare_calls: 0;
   session_calls: 0;
   caller_owned_continuation: {
-    package_version: "1.5.3";
+    package_version: "1.6.0";
     requires_fresh_requote: true;
     requires_explicit_caller_approval_before_plan: true;
     plugin_returns_raw_quote: false;
@@ -314,7 +314,7 @@ function createGuidance(
     prepare_calls: 0,
     session_calls: 0,
     caller_owned_continuation: {
-      package_version: "1.5.3",
+      package_version: "1.6.0",
       requires_fresh_requote: true,
       requires_explicit_caller_approval_before_plan: true,
       plugin_returns_raw_quote: false,
@@ -323,7 +323,7 @@ function createGuidance(
         executable: "npx",
         args: [
           "--yes",
-          "--package=assetfare-mcp@1.5.3",
+          "--package=assetfare-mcp@1.6.0",
           "assetfare-route-eval",
           "--amount",
           String(intent.amount_usd),
@@ -343,7 +343,7 @@ function createGuidance(
         executable: "npx",
         args: [
           "--yes",
-          "--package=assetfare-mcp@1.5.3",
+          "--package=assetfare-mcp@1.6.0",
           "assetfare-plan",
           "--caller-approved",
           "--mode",
@@ -374,7 +374,7 @@ function createGuidance(
         executable: "npx",
         args: [
           "--yes",
-          "--package=assetfare-mcp@1.5.3",
+          "--package=assetfare-mcp@1.6.0",
           "assetfare-session",
           "--operation",
           "wallet-ready",
@@ -390,7 +390,7 @@ function createGuidance(
         executable: "npx",
         args: [
           "--yes",
-          "--package=assetfare-mcp@1.5.3",
+          "--package=assetfare-mcp@1.6.0",
           "assetfare-agent-runner",
           "--preflight",
           "--capability-file",
