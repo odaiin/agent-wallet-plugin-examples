@@ -88,13 +88,20 @@ export type QuoteGuidance = {
   prepare_calls: 0;
   session_calls: 0;
   caller_owned_continuation: {
-    package_version: "1.3.6";
+    package_version: "1.4.0";
     requires_fresh_requote: true;
     requires_explicit_caller_approval_before_plan: true;
     plugin_returns_raw_quote: false;
     plugin_remains_read_only: true;
     quote_command: { executable: "npx"; args: string[] };
     unsigned_plan_command_template: { executable: "npx"; args: string[] };
+    action_lifetime: {
+      quote_ttl_seconds: 60;
+      action_bundle_ttl_seconds: 180;
+      evm_onchain_deadline_seconds: 240;
+      wallet_ready_minimum_remaining_seconds: 120;
+    };
+    wallet_ready_command_template: { executable: "npx"; args: string[] };
     outcome: "verified_unsigned_plan_only";
     wallet_signs_and_submits: true;
     assetfare_server_signs_or_submits: false;
@@ -299,7 +306,7 @@ function createGuidance(
     prepare_calls: 0,
     session_calls: 0,
     caller_owned_continuation: {
-      package_version: "1.3.6",
+      package_version: "1.4.0",
       requires_fresh_requote: true,
       requires_explicit_caller_approval_before_plan: true,
       plugin_returns_raw_quote: false,
@@ -308,7 +315,7 @@ function createGuidance(
         executable: "npx",
         args: [
           "--yes",
-          "--package=assetfare-mcp@1.3.6",
+          "--package=assetfare-mcp@1.4.0",
           "assetfare-route-eval",
           "--amount",
           String(intent.amount_usd),
@@ -328,7 +335,7 @@ function createGuidance(
         executable: "npx",
         args: [
           "--yes",
-          "--package=assetfare-mcp@1.3.6",
+          "--package=assetfare-mcp@1.4.0",
           "assetfare-plan",
           "--caller-approved",
           "--mode",
@@ -347,6 +354,28 @@ function createGuidance(
           "./session-capability.json",
           "--wallet-handoff-output",
           "./caller-wallet-handoff.json",
+        ],
+      },
+      action_lifetime: {
+        quote_ttl_seconds: 60,
+        action_bundle_ttl_seconds: 180,
+        evm_onchain_deadline_seconds: 240,
+        wallet_ready_minimum_remaining_seconds: 120,
+      },
+      wallet_ready_command_template: {
+        executable: "npx",
+        args: [
+          "--yes",
+          "--package=assetfare-mcp@1.4.0",
+          "assetfare-session",
+          "--operation",
+          "wallet-ready",
+          "--capability-file",
+          "./session-capability.json",
+          "--idempotency-key",
+          "<NEW_WALLET_READY_IDEMPOTENCY_KEY>",
+          "--wallet-handoff-output",
+          "./wallet-ready-handoff.json",
         ],
       },
       outcome: "verified_unsigned_plan_only",
