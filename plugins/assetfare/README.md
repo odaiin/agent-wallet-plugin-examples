@@ -78,7 +78,7 @@ then use a separate reviewed integration if they want to act. Multi-step routes
 are session-only; exactly one continuation path may be chosen.
 
 The result also includes `guidance.caller_owned_continuation`, a structured
-two-command handoff pinned to `assetfare-mcp@1.5.2`. Because this plugin removes
+two-command handoff pinned to `assetfare-mcp@1.5.3`. Because this plugin removes
 the raw quote, the first command obtains and writes one new exact validated
 quote to a mode-0600 file. Only after comparison and explicit caller approval,
 the second command creates strict quote-bound approval locally and requests one
@@ -87,7 +87,7 @@ EIP-1193 templates or Solana Wallet Standard construction inputs together with
 the exact verified bundle, safety receipt, verification results, and a canonical handoff hash. Commands are
 returned as an executable plus argument array and contain public-address placeholders only. The plugin still
 requests zero Agent Wallet permissions and never prepares, signs, or submits.
-The 1.5.2 session capability preserves strict verification context so every
+The 1.5.3 session capability preserves strict verification context so every
 later session action receives the same semantic verification and a new
 self-verifying wallet handoff.
 Immediately before wallet use, run the returned `wallet_ready_command_template`.
