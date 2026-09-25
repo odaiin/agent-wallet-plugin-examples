@@ -396,13 +396,13 @@ test("quote uses one exact POST body, strips workflow handoffs, and gives fresh 
   assert.equal(result.guidance.wallet_collection_performed, false);
   assert.equal(result.guidance.prepare_calls, 0);
   assert.equal(result.guidance.session_calls, 0);
-  assert.equal(result.guidance.caller_owned_continuation.package_version, "1.3.5");
+  assert.equal(result.guidance.caller_owned_continuation.package_version, "1.3.6");
   assert.equal(result.guidance.caller_owned_continuation.requires_fresh_requote, true);
   assert.equal(result.guidance.caller_owned_continuation.requires_explicit_caller_approval_before_plan, true);
   assert.equal(result.guidance.caller_owned_continuation.plugin_returns_raw_quote, false);
   assert.equal(result.guidance.caller_owned_continuation.plugin_remains_read_only, true);
   assert.deepEqual(result.guidance.caller_owned_continuation.quote_command.args, [
-    "--yes", "--package=assetfare-mcp@1.3.5", "assetfare-route-eval", "--amount", "1000",
+    "--yes", "--package=assetfare-mcp@1.3.6", "assetfare-route-eval", "--amount", "1000",
     "--from-chain", "arbitrum", "--from-token", "USDC", "--to-chain", "base", "--to-token", "USDC",
     "--quote-output", "quote.json",
   ]);
