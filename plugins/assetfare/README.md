@@ -78,19 +78,21 @@ then use a separate reviewed integration if they want to act. Multi-step routes
 are session-only; exactly one continuation path may be chosen.
 
 The result also includes `guidance.caller_owned_continuation`, a structured
-two-command handoff pinned to `assetfare-mcp@1.3.0`. Because this plugin removes
+two-command handoff pinned to `assetfare-mcp@1.3.1`. Because this plugin removes
 the raw quote, the first command obtains and writes one new exact validated
 quote to a mode-0600 file. Only after comparison and explicit caller approval,
 the second command creates strict quote-bound approval locally and requests one
-verified unsigned session action. Commands are returned as an executable plus
-argument array and contain public-address placeholders only. The plugin still
+verified unsigned session action plus a caller-wallet handoff file containing
+EIP-1193 templates or Solana Wallet Standard construction inputs. Commands are
+returned as an executable plus argument array and contain public-address placeholders only. The plugin still
 requests zero Agent Wallet permissions and never prepares, signs, or submits.
 
 Use the continuation for an aggregate refill or material transfer, not
-automatically for each failed x402 micropayment. Native-USDC needs below the
-dated USD 50 evaluation start should be aggregated before comparison, and a
-wallet with no spendable asset on any supported source chain is not an
-AssetFare use case.
+automatically for each failed x402 micropayment. For the evidenced Solana USDC
+to Base USDC corridor, needs below the dated USD 50 observed bucket should be
+aggregated before comparison; other corridors have no claimed threshold. A
+wallet with no spendable asset on any supported source chain is not an AssetFare
+use case.
 
 ## Security boundary
 

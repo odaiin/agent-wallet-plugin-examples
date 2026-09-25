@@ -88,7 +88,7 @@ export type QuoteGuidance = {
   prepare_calls: 0;
   session_calls: 0;
   caller_owned_continuation: {
-    package_version: "1.3.0";
+    package_version: "1.3.1";
     requires_fresh_requote: true;
     requires_explicit_caller_approval_before_plan: true;
     plugin_returns_raw_quote: false;
@@ -299,7 +299,7 @@ function createGuidance(
     prepare_calls: 0,
     session_calls: 0,
     caller_owned_continuation: {
-      package_version: "1.3.0",
+      package_version: "1.3.1",
       requires_fresh_requote: true,
       requires_explicit_caller_approval_before_plan: true,
       plugin_returns_raw_quote: false,
@@ -308,7 +308,7 @@ function createGuidance(
         executable: "npx",
         args: [
           "--yes",
-          "--package=assetfare-mcp@1.3.0",
+          "--package=assetfare-mcp@1.3.1",
           "assetfare-route-eval",
           "--amount",
           String(intent.amount_usd),
@@ -328,7 +328,7 @@ function createGuidance(
         executable: "npx",
         args: [
           "--yes",
-          "--package=assetfare-mcp@1.3.0",
+          "--package=assetfare-mcp@1.3.1",
           "assetfare-plan",
           "--caller-approved",
           "--mode",
@@ -345,6 +345,8 @@ function createGuidance(
             : []),
           "--session-token-output",
           "./session-capability.json",
+          "--wallet-handoff-output",
+          "./caller-wallet-handoff.json",
         ],
       },
       outcome: "verified_unsigned_plan_only",

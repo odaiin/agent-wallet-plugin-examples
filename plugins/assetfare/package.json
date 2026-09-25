@@ -1,6 +1,6 @@
 {
   "name": "assetfare",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Read-only AssetFare quotes with verified provider path and sanitized continuation_v3 descriptor for MetaMask Agent Wallet",
   "license": "MIT",
   "type": "module",

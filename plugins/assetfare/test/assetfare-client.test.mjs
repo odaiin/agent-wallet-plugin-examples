@@ -396,19 +396,21 @@ test("quote uses one exact POST body, strips workflow handoffs, and gives fresh 
   assert.equal(result.guidance.wallet_collection_performed, false);
   assert.equal(result.guidance.prepare_calls, 0);
   assert.equal(result.guidance.session_calls, 0);
-  assert.equal(result.guidance.caller_owned_continuation.package_version, "1.3.0");
+  assert.equal(result.guidance.caller_owned_continuation.package_version, "1.3.1");
   assert.equal(result.guidance.caller_owned_continuation.requires_fresh_requote, true);
   assert.equal(result.guidance.caller_owned_continuation.requires_explicit_caller_approval_before_plan, true);
   assert.equal(result.guidance.caller_owned_continuation.plugin_returns_raw_quote, false);
   assert.equal(result.guidance.caller_owned_continuation.plugin_remains_read_only, true);
   assert.deepEqual(result.guidance.caller_owned_continuation.quote_command.args, [
-    "--yes", "--package=assetfare-mcp@1.3.0", "assetfare-route-eval", "--amount", "1000",
+    "--yes", "--package=assetfare-mcp@1.3.1", "assetfare-route-eval", "--amount", "1000",
     "--from-chain", "arbitrum", "--from-token", "USDC", "--to-chain", "base", "--to-token", "USDC",
     "--quote-output", "quote.json",
   ]);
   assert.ok(result.guidance.caller_owned_continuation.unsigned_plan_command_template.args.includes("--select-exact-quote-bounds"));
   assert.ok(result.guidance.caller_owned_continuation.unsigned_plan_command_template.args.includes("arbitrum=<CALLER_ARBITRUM_PUBLIC_ADDRESS>"));
   assert.ok(result.guidance.caller_owned_continuation.unsigned_plan_command_template.args.includes("base=<CALLER_BASE_PUBLIC_ADDRESS>"));
+  assert.ok(result.guidance.caller_owned_continuation.unsigned_plan_command_template.args.includes("--wallet-handoff-output"));
+  assert.ok(result.guidance.caller_owned_continuation.unsigned_plan_command_template.args.includes("./caller-wallet-handoff.json"));
   assert.equal(result.guidance.caller_owned_continuation.outcome, "verified_unsigned_plan_only");
   assert.equal(result.guidance.caller_owned_continuation.wallet_signs_and_submits, true);
   assert.equal(result.guidance.caller_owned_continuation.assetfare_server_signs_or_submits, false);
