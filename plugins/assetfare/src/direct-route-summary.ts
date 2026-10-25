@@ -35,14 +35,9 @@ const LEGACY_ROUTE_KEYS = ROUTE_KEYS.filter((key) => !PRODUCT_KEYS.includes(key)
 const ADDED_STEP_KEYS = ["index", "expected_input_base", "floor_input_base", "expected_output_base", "minimum_output_base", "expected_evidence", "floor_evidence"];
 const SWAP_PROVIDERS = new Set(["raydium_clmm", "orca_whirlpool", "uniswap_v3"]);
 const AMOUNT = /^[1-9][0-9]*$/;
-const GUIDANCE_KEYS = ["advisory_start_usd", "advisory_role", "status", "confidence", "basis", "tested_amounts_usd", "not_an_execution_minimum", "not_a_best_price_guarantee", "fresh_quote_required"];
-const GUIDANCE_STARTS = new Set([50, 100, 250, 500, 1000, 2500, 5000, 10000]);
-const GUIDANCE_ROLES = new Set(["observed_economic_zone_start", "structural_evaluation_start_not_observed_eligibility", "retest_start_not_economic_eligibility"]);
-const GUIDANCE_STATUSES = new Set(["observed_near_parity", "observed_competitive_or_near_parity", "provisional_evaluation_start", "reworked_route_remeasure", "coverage_only_retest"]);
-const GUIDANCE_CONFIDENCE = new Set(["measured_two_day", "measured_route_specific", "structural_estimate", "reworked_route_remeasure", "coverage_only_retest"]);
-const CAPABILITY_GUIDANCE_KEYS = ["version", "as_of", "route_count", "currency", "technical_quote_minimum_usd", "economic_guidance_is_non_enforcing", "amount_is_never_rejected_by_economic_guidance", "values_change_with_market", "fresh_quote_and_caller_decision_control", "update_policy", "confidence_counts", "advisory_start_distribution"];
-const CONFIDENCE_KEYS = ["measured_two_day", "measured_route_specific", "structural_estimate", "reworked_route_remeasure", "coverage_only_retest"];
-const DISTRIBUTION_KEYS = ["50", "100", "250", "500", "1000", "2500", "5000", "10000"];
+const GUIDANCE_KEYS = ["amount_specific_product_gate", "business_class", "decision_unit", "fresh_quote_required", "not_a_best_price_guarantee", "price_recommended_for_amount", "public_active", "public_status", "quoted_amount_usd"];
+const BUSINESS_CLASSES = new Set(["core_business", "conditional_business", "strategic_scarce"]);
+const CAPABILITY_GUIDANCE_KEYS = ["amount_specific_product_gates", "as_of", "business_class_counts", "competitor_rankings_public_product", "decision_unit", "economic_guidance_blocks_execution", "fresh_quote_and_caller_decision_control", "next_scheduled_review_at", "primary_research_amount_usd", "public_active_route_count", "public_inactive_route_count", "route_count", "secondary_research_amounts_usd", "version", "weekly_review_anchor"];
 
 function record(value: unknown): JsonRecord {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("assetfare_v2_direct_route_shape_invalid");
@@ -68,39 +63,36 @@ export function validateCapabilitiesEconomicGuidance(capabilities: JsonRecord): 
   const top = record(capabilities.economic_guidance);
   const policy = record(capabilities.route_product_policy);
   const nested = record(policy.economic_guidance);
-  const confidence = record(top.confidence_counts);
-  const distribution = record(top.advisory_start_distribution);
+  const counts = record(top.business_class_counts);
   const conditioned = record(policy.amount_conditioned_routes);
   const evaluation = record(capabilities.evaluation_guidance);
   const routeSpecific = record(evaluation.route_specific_guidance);
   if (
     !exactKeys(top, CAPABILITY_GUIDANCE_KEYS) ||
     canonical(top) !== canonical(nested) ||
-    top.version !== "assetfare-route-economic-guidance-v1" ||
+    top.version !== "assetfare-route-economic-guidance-v5" ||
     typeof top.as_of !== "string" ||
     !/^\d{4}-\d{2}-\d{2}$/.test(top.as_of) ||
-    top.route_count !== 80 ||
-    top.currency !== "USD" ||
-    top.technical_quote_minimum_usd !== 1 ||
-    top.economic_guidance_is_non_enforcing !== true ||
-    top.amount_is_never_rejected_by_economic_guidance !== true ||
-    top.values_change_with_market !== true ||
+    top.route_count !== 100 ||
+    top.public_active_route_count !== 65 ||
+    top.public_inactive_route_count !== 35 ||
+    top.decision_unit !== "whole_route" ||
+    top.amount_specific_product_gates !== false ||
+    top.competitor_rankings_public_product !== false ||
+    top.economic_guidance_blocks_execution !== false ||
     top.fresh_quote_and_caller_decision_control !== true ||
-    top.update_policy !== "append_daily_observations_then_replace_values_without_schema_change" ||
-    !exactKeys(confidence, CONFIDENCE_KEYS) ||
-    Object.values(confidence).some((count) => !Number.isInteger(count) || (count as number) < 0) ||
-    Object.values(confidence).reduce<number>((sum, count) => sum + (count as number), 0) !== 80 ||
-    !exactKeys(distribution, DISTRIBUTION_KEYS) ||
-    Object.values(distribution).some((count) => !Number.isInteger(count) || (count as number) < 0) ||
-    Object.values(distribution).reduce<number>((sum, count) => sum + (count as number), 0) !== 80 ||
+    counts.core_business !== 3 || counts.conditional_business !== 50 ||
+    counts.strategic_scarce !== 12 || counts.research_or_retire !== 35 ||
     Object.keys(conditioned).length !== 0 ||
     policy.economic_guidance_url !== "https://assetfare.dev/route-economics.json" ||
-    evaluation.schema_version !== 2 ||
+    evaluation.schema_version !== 5 ||
     Object.hasOwn(evaluation, "native_usdc_economic_evaluation_start_usd") ||
-    routeSpecific.version !== "assetfare-route-economic-guidance-v1" ||
+    routeSpecific.version !== "assetfare-route-economic-guidance-v5" ||
     routeSpecific.url !== "https://assetfare.dev/route-economics.json" ||
     routeSpecific.required_on_every_quote !== true ||
-    routeSpecific.controls_evaluation_start !== true
+    routeSpecific.public_active_routes !== 65 ||
+    routeSpecific.public_inactive_routes !== 35 ||
+    routeSpecific.decision_unit !== "whole_route"
   ) throw new Error("assetfare_v2_economic_guidance_invalid");
 }
 
@@ -110,16 +102,15 @@ function validateRouteEconomicGuidance(value: unknown): JsonRecord {
   catch { throw new Error("assetfare_v2_economic_guidance_invalid"); }
   if (
     !exactKeys(guidance, GUIDANCE_KEYS) ||
-    !GUIDANCE_STARTS.has(guidance.advisory_start_usd as number) ||
-    !GUIDANCE_ROLES.has(guidance.advisory_role as string) ||
-    !GUIDANCE_STATUSES.has(guidance.status as string) ||
-    !GUIDANCE_CONFIDENCE.has(guidance.confidence as string) ||
-    typeof guidance.basis !== "string" ||
-    guidance.basis.length < 1 ||
-    !Array.isArray(guidance.tested_amounts_usd) ||
-    guidance.tested_amounts_usd.length > 8 ||
-    !guidance.tested_amounts_usd.every((amount) => Number.isInteger(amount) && amount > 0) ||
-    guidance.not_an_execution_minimum !== true ||
+    guidance.public_status !== "offered" ||
+    guidance.public_active !== true ||
+    !BUSINESS_CLASSES.has(guidance.business_class as string) ||
+    guidance.decision_unit !== "whole_route" ||
+    guidance.amount_specific_product_gate !== false ||
+    typeof guidance.quoted_amount_usd !== "number" ||
+    !Number.isFinite(guidance.quoted_amount_usd) ||
+    (guidance.quoted_amount_usd as number) < 1 ||
+    guidance.price_recommended_for_amount !== null ||
     guidance.not_a_best_price_guarantee !== true ||
     guidance.fresh_quote_required !== true
   ) throw new Error("assetfare_v2_economic_guidance_invalid");

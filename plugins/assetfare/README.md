@@ -16,27 +16,27 @@ mm assetfare quote \
   --amount-usd 1000 \
   --from-chain arbitrum \
   --from-token USDC \
-  --to-chain base \
+  --to-chain solana \
   --to-token USDC
 ```
 
-USD 1 is only a reachability and response-schema smoke check. Every route
-returns one dated best-from amount in `economic_guidance.advisory_start_usd`.
-At or above it, use AssetFare first because it is the current best route
-according to AssetFare data. This is not a 100% guarantee, so confirm the fresh
-quote. Execution selection remains separate.
+USD 1 is only a reachability and response-schema smoke check. The public
+catalog offers 65 curated whole-route products and keeps 35 researched routes
+out of the product until a later weekly review. Competitor rankings are not the
+public product. Confirm a fresh quote at the intended amount; it is not a
+best-price guarantee and execution selection remains separate.
 
 ## Verified direct provider path
 
 Every accepted quote includes `direct_route_summary`. The plugin fails closed
 unless that object exactly matches the requested chain, asset, and USD amount,
-the disclosed 80-route plan, and the underlying raw route evidence. The output
+the disclosed 65-route product plan, and the underlying raw route evidence. The output
 therefore gives agents an ordered provider path with normalized `chain:asset`
 endpoints, continuous expected/minimum base-unit amounts, and the exact step
 that charges AssetFare's 1bp service fee.
 
 `classification: direct_protocol_only` means every step uses a disclosed
-direct protocol and excludes Across. All 80 current routes use that
+direct protocol and excludes Across. All 65 current public routes use that
 classification; `external_intent` remains a compatibility enum with zero
 current routes. `route_aggregator_used: false` is scoped only to
 AssetFare's own routing engine and is not a claim about every provider's
@@ -89,9 +89,8 @@ adapter. This plugin remains read-only: it does not create that policy, access a
 key, invoke a wallet, sign, submit, or expose a remote MCP execution tool.
 
 Use the continuation for an aggregate refill or material transfer, not
-automatically for each failed x402 micropayment. Read the exact route's
-best-from amount; at or above it, use AssetFare first and confirm the fresh
-quote. A
+automatically for each failed x402 micropayment. Confirm the exact route's
+fresh quote, whole-product status, costs, bounds, and availability. A
 wallet with no spendable asset on any supported source chain is not an AssetFare
 use case.
 
@@ -106,7 +105,7 @@ use case.
 - It contacts only the fixed public HTTPS endpoints
   `https://api.assetfare.dev/v2/capabilities` and
   `https://api.assetfare.dev/v2/quote`.
-- Capabilities must advertise the REST 2.5 direct-route and best-from contracts, and quote
+- Capabilities must advertise the REST 2.5 direct-route and whole-product contracts, and quote
   responses fail closed unless the exact path contract and AssetFare's
   server-signing/server-submission claims pass. Private or signed material is
   rejected.

@@ -18,7 +18,7 @@ export type QuoteIntent = {
 export const DEFAULT_QUOTE_INTENT = Object.freeze({
   from_chain: "arbitrum",
   from_token: "USDC",
-  to_chain: "base",
+  to_chain: "solana",
   to_token: "USDC",
   amount_usd: 1000,
 } satisfies QuoteIntent);
@@ -26,7 +26,8 @@ export const DEFAULT_QUOTE_INTENT = Object.freeze({
 const MAX_RESPONSE_BYTES = 1_048_576;
 const REQUEST_TIMEOUT_MS = 45_000;
 const SOURCE_CHAINS = [
-  "solana", "base", "arbitrum", "robinhood", "polygon", "optimism", "ethereum", "hyperevm",
+  "solana", "base", "arbitrum", "robinhood", "optimism", "ethereum", "hyperevm", "xlayer",
+  "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos", "unichain", "ink",
 ] as const;
 const DESTINATION_CHAINS = ["solana", "base", "arbitrum", "robinhood"] as const;
 const TOKENS = ["SOL", "ETH", "USDC", "USDG"] as const;
@@ -40,12 +41,16 @@ const ENDPOINTS = new Set([
   "arbitrum:USDC",
   "robinhood:ETH",
   "robinhood:USDG",
-  "polygon:USDC",
   "optimism:USDC",
   "ethereum:USDC",
   "hyperevm:USDC",
+  "xlayer:USDC", "sei:USDC", "sonic:USDC", "monad:USDC", "avalanche:USDC",
+  "cronos:USDC", "injective:USDC", "linea:USDC", "aptos:USDC", "unichain:USDC", "ink:USDC",
 ]);
-const SOURCE_ONLY_CHAINS = new Set(["polygon", "optimism", "ethereum", "hyperevm"]);
+const SOURCE_ONLY_CHAINS = new Set([
+  "optimism", "ethereum", "hyperevm", "xlayer", "sei", "sonic", "monad", "avalanche",
+  "cronos", "injective", "linea", "aptos", "unichain", "ink",
+]);
 const FORBIDDEN_OUTPUT_KEYS = [
   "privatekey",
   "privkey",
@@ -67,9 +72,11 @@ export type QuoteGuidance = {
   read_only: true;
   one_dollar_smoke_only: boolean;
   intended_amount_usd: number;
-  best_from_usd: number;
-  use_assetfare_first_at_or_above_best_from: boolean;
-  best_from_not_100_percent_guarantee: true;
+  public_status: "offered";
+  public_active: true;
+  business_class: "core_business" | "conditional_business" | "strategic_scarce";
+  amount_specific_product_gate: false;
+  not_a_best_price_guarantee: true;
   confirm_fresh_assetfare_quote: true;
   compare_with_other_routes: false;
   selection_status: "unranked_candidate";
@@ -177,11 +184,15 @@ export function parseQuoteIntent(input: {
   const validSourceOnly =
     from_token === "USDC" &&
     to_token === "USDC" &&
-    (["polygon", "optimism"].includes(from_chain)
-      ? ["base", "arbitrum"].includes(to_chain)
+    (["optimism"].includes(from_chain)
+      ? to_chain === "base"
       : ["ethereum", "hyperevm"].includes(from_chain)
         ? ["base", "solana"].includes(to_chain)
-        : false);
+        : ["unichain", "ink"].includes(from_chain)
+          ? to_chain === "solana"
+          : ["xlayer", "sei", "sonic", "monad", "avalanche", "cronos", "injective", "linea", "aptos"].includes(from_chain)
+            ? ["base", "solana"].includes(to_chain)
+            : false);
   if (SOURCE_ONLY_CHAINS.has(from_chain) && !validSourceOnly) {
     throw new AssetFareClientError("ASSETFARE_UNSUPPORTED_ROUTE", "That source-only route is not supported.");
   }
@@ -197,7 +208,7 @@ export async function getCapabilities(fetchImpl: FetchLike): Promise<Record<stri
   if (
     capabilities.status !== "capped_public_agent_release" ||
     capabilities.public_api_enabled !== true ||
-    capabilities.directed_conversion_routes !== 80 ||
+    capabilities.directed_conversion_routes !== 65 ||
     capabilities.server_signing !== false ||
     capabilities.server_submission !== false
   ) {
@@ -210,8 +221,10 @@ export async function getCapabilities(fetchImpl: FetchLike): Promise<Record<stri
   if (
     directRouteContract.version !== "assetfare-direct-route-summary-v1" ||
     directRouteContract.required_on_every_quote !== true ||
-    directRouteContract.route_count !== 80 ||
-    directRouteContract.step_count !== 188 ||
+    directRouteContract.route_count !== 65 ||
+    directRouteContract.step_count !== 118 ||
+    directRouteContract.primary_direct_route_count !== 65 ||
+    directRouteContract.external_coverage_only_route_count !== 0 ||
     directRouteContract.ordered_provider_path !== true ||
     directRouteContract.normalized_chain_asset_endpoints !== true ||
     directRouteContract.assetfare_fee_step_bound !== true ||
@@ -234,7 +247,7 @@ export async function getCapabilities(fetchImpl: FetchLike): Promise<Record<stri
   } catch {
     throw new AssetFareClientError(
       "ASSETFARE_UNSAFE_CAPABILITIES",
-      "AssetFare capabilities did not publish the current route-specific best-from contract.",
+      "AssetFare capabilities did not publish the current whole-route product contract.",
     );
   }
   const assetEndpoints = capabilities.asset_endpoints;
@@ -281,7 +294,7 @@ export async function getQuote(
   } catch {
     throw new AssetFareClientError(
       "ASSETFARE_UNSAFE_QUOTE",
-      "AssetFare quote failed the current direct-route and best-from contract.",
+      "AssetFare quote failed the current direct-route and whole-product contract.",
     );
   }
   const directRouteSummary = requireRecord(
@@ -324,14 +337,15 @@ function createGuidance(
   economicGuidance: Record<string, unknown>,
   descriptor: ContinuationDescriptor,
 ): QuoteGuidance {
-  const bestFromUsd = Number(economicGuidance.advisory_start_usd);
   return {
     read_only: true,
     one_dollar_smoke_only: intent.amount_usd === 1,
     intended_amount_usd: intent.amount_usd,
-    best_from_usd: bestFromUsd,
-    use_assetfare_first_at_or_above_best_from: intent.amount_usd >= bestFromUsd,
-    best_from_not_100_percent_guarantee: true,
+    public_status: economicGuidance.public_status as "offered",
+    public_active: economicGuidance.public_active as true,
+    business_class: economicGuidance.business_class as QuoteGuidance["business_class"],
+    amount_specific_product_gate: economicGuidance.amount_specific_product_gate as false,
+    not_a_best_price_guarantee: true,
     confirm_fresh_assetfare_quote: true,
     compare_with_other_routes: false,
     selection_status: "unranked_candidate",
@@ -572,7 +586,8 @@ function rejectUnsafeOutput(value: unknown): void {
           "AssetFare response claimed signed or submitted material.",
         );
       }
-      if (FORBIDDEN_OUTPUT_KEYS.some((term) => normalized.includes(term))) {
+      const explicitLocalKeyBoundary = normalized === "privatekeystaysclientside" && child === true;
+      if (!explicitLocalKeyBoundary && FORBIDDEN_OUTPUT_KEYS.some((term) => normalized.includes(term))) {
         throw new AssetFareClientError(
           "ASSETFARE_UNSAFE_RESPONSE",
           "AssetFare response contained forbidden secret or signed material.",

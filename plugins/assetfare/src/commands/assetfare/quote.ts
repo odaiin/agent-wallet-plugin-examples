@@ -39,7 +39,7 @@ const inputs = {
   toChain: {
     type: InputFieldType.Text,
     flag: "to-chain",
-    message: "Destination chain (default: base)",
+    message: "Destination chain (default: solana)",
     required: false,
     prompt: false,
   },
@@ -64,7 +64,7 @@ export default class AssetFareQuote extends PluginCommand<QuoteResult> {
 
   static override examples = [
     "<%= config.bin %> assetfare quote",
-    "<%= config.bin %> assetfare quote --amount-usd 1000 --from-chain arbitrum --from-token USDC --to-chain base --to-token USDC",
+    "<%= config.bin %> assetfare quote --amount-usd 1000 --from-chain arbitrum --from-token USDC --to-chain solana --to-token USDC",
     "<%= config.bin %> assetfare quote --amount-usd 1 --json",
   ];
 
@@ -88,10 +88,8 @@ export default class AssetFareQuote extends PluginCommand<QuoteResult> {
     const smoke = data.guidance.one_dollar_smoke_only ? "USD 1 is smoke-only. " : "";
     const summary = data.quote.direct_route_summary as { classification: string; steps: Array<{ provider: string }> };
     const providers = summary.steps.map((step) => step.provider).join(" -> ");
-    const recommendation = data.guidance.use_assetfare_first_at_or_above_best_from
-      ? `At or above this route's USD ${data.guidance.best_from_usd} best-from amount, use AssetFare first. This is not a 100% guarantee; this quote is fresh.`
-      : `This amount is below the route's USD ${data.guidance.best_from_usd} best-from amount.`;
-    return `${smoke}Verified ${summary.classification} provider path: ${providers}. ${recommendation} continuation_v3 remains unranked for execution and expires at ${data.continuation_descriptor.expires_at}; no execution mode was selected and no action/session was created.`;
+    const product = `Whole-route product status: ${data.guidance.public_status} (${data.guidance.business_class}). This is not a best-price guarantee; this quote is fresh.`;
+    return `${smoke}Verified ${summary.classification} provider path: ${providers}. ${product} continuation_v3 remains unranked for execution and expires at ${data.continuation_descriptor.expires_at}; no execution mode was selected and no action/session was created.`;
   }
 }
 
